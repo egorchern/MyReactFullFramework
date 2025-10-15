@@ -1,3 +1,7 @@
-import {setup} from '../framework/index';
+import {setup, attachEvent} from '../framework/index.js';
 
-setup('reactful-parent');
+const rootNode = setup('reactful-parent');
+
+attachEvent('click', rootNode!, (eventTarget) => {
+    console.log('Clicked on:', "clicked on root");
+})

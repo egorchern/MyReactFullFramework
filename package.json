@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "Simple Express.js server serving a frontend",
   "main": "dist/server/server.js",
+  "type": "module",
   "scripts": {
     "build": "tsc",
     "start": "node dist/server/server.js",

@@ -1,5 +1,8 @@
 import VirtualDOMNode from "./interfaces/virtualDomNode";
-import { createVirtualDOMNode } from "./VirtualDOMNodeFactory.js";
+import { findNodeByDataUid } from "./utilities/util";
+import { createVirtualDOMNode } from "./VirtualDOMNodeFactory";
+import { v4 as uuidv4 } from 'uuid';
+
 let rootDomElement: HTMLElement | null = null;
 
 function setup(rootId: string): VirtualDOMNode | null {
@@ -8,7 +11,7 @@ function setup(rootId: string): VirtualDOMNode | null {
     if (rootElement) {
         alert('Setup called, found root element with id: ' + rootId);
         rootDomElement = rootElement;
-        const rootNode = createVirtualDOMNode('<div></div>', [], null);
+        const rootNode = createVirtualDOMNode('<div></div>', null);
 
         return rootNode;
     }
@@ -42,7 +45,7 @@ function createElementFromHTML(html: string): HTMLElement {
   return template.content.firstElementChild as HTMLElement;
 }   
 
-function render(currentNode: VirtualDOMNode) {
+function render(currentNode: VirtualDOMNode, childReplacementUid: string | null = null) {
     if (currentNode.DOMElement) {
         currentNode.DOMEventListeners.forEach(({ type, listener }) => {
             currentNode.DOMElement!.removeEventListener(type, listener);
@@ -51,17 +54,34 @@ function render(currentNode: VirtualDOMNode) {
         currentNode.DOMEventListeners = [];
         currentNode.DOMElement.remove();
     }
-    
-    currentNode.DOMElement = createElementFromHTML(currentNode.getAsHTML());
+    let htmlString = currentNode.getAsHTML();
+    const matches = [...htmlString.matchAll(/@child_(\d+)/g)];
+    const childReplacementsUids: Map<number, string> = new Map();
+    matches.forEach(match => {
+        const uid = uuidv4();
+        const replacement = `<template data-uid="${uid}"></template>`;
+        htmlString = htmlString.replace(match[0], replacement);
+        const idx = match[0].split('_')[1];
+
+        childReplacementsUids.set(Number(idx), uid);
+    });
+    currentNode.DOMElement = createElementFromHTML(htmlString);
     currentNode.eventCallbacks.forEach(eventCallback => {
         attachEventToHTML(eventCallback.type, currentNode, eventCallback.callback);
     });
     
     const parentDOM = currentNode.renderRoot ? currentNode.renderRoot.DOMElement : rootDomElement;
-    parentDOM!.appendChild(currentNode.DOMElement);
+    if (childReplacementUid)
+    {
+        let templateNode = findNodeByDataUid(parentDOM!, childReplacementUid!);
+        templateNode?.parentNode?.replaceChild(currentNode.DOMElement!, templateNode);
+    }
+    else {
+        parentDOM!.appendChild(currentNode.DOMElement);
+    }
 
-    currentNode.children.forEach(child => {
-        render(child);
+    currentNode.children.forEach((child, index) => {
+        render(child, childReplacementsUids.get(index) || null);
     });
 }
 
